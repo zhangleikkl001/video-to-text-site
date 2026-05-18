@@ -1,0 +1,59 @@
+---
+import { getCollection } from 'astro:content';
+import Layout from '../../layouts/Layout.astro';
+
+export async function getStaticPaths() {
+	const posts = await getCollection('posts');
+	return posts.map(entry => ({
+		params: { slug: entry.slug }, props: { entry },
+	}));
+}
+
+const { entry } = Astro.props;
+const { Content } = await entry.render();
+---
+
+<Layout title={`${entry.data.title} - GlobalFeed`}>
+	<article class="py-10">
+		<header class="mb-10 text-center">
+			<div class="flex justify-center items-center gap-3 mb-4">
+				<span class="px-3 py-1 bg-blue-500/20 text-blue-400 text-sm font-semibold rounded-full uppercase">
+					{entry.data.category}
+				</span>
+				<span class="text-gray-500">{entry.data.date.toLocaleDateString()}</span>
+			</div>
+			<h1 class="text-4xl md:text-5xl font-extrabold text-white leading-tight mb-6">
+				{entry.data.title}
+			</h1>
+		</header>
+
+		<div class="rounded-3xl overflow-hidden mb-12 shadow-2xl shadow-blue-500/10">
+			<img src={entry.data.cover_image} alt={entry.data.title} class="w-full object-cover" />
+		</div>
+
+		<div class="prose prose-invert prose-lg max-w-none prose-headings:text-white prose-p:text-gray-300 prose-img:rounded-2xl prose-a:text-blue-400">
+			<Content />
+		</div>
+		
+		<div class="mt-16 pt-8 border-t border-gray-800 flex justify-between items-center">
+			<div class="flex gap-2">
+				{entry.data.tags.map(tag => (
+					<span class="text-sm text-gray-500 font-mono italic">#{tag}</span>
+				))}
+			</div>
+			{entry.data.original_video_url && (
+				<a href={entry.data.original_video_url} target="_blank" class="text-blue-400 hover:underline text-sm">
+					View Original Video
+				</a>
+			)}
+		</div>
+	</article>
+</Layout>
+
+<style is:global>
+	.prose img {
+		width: 100%;
+		margin-top: 2rem;
+		margin-bottom: 2rem;
+	}
+</style>

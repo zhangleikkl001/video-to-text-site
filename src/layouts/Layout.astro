@@ -1,0 +1,56 @@
+---
+interface Props {
+	title: string;
+}
+
+const { title } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en" class="bg-gray-950 text-gray-100">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="description" content="Global short video to text platform" />
+		<meta name="viewport" content="width=device-width" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<meta name="generator" content={Astro.generator} />
+		<title>{title}</title>
+	</head>
+	<body class="min-h-screen">
+		<nav class="sticky top-0 z-50 bg-gray-950/80 backdrop-blur-md border-b border-gray-800">
+			<div class="max-w-screen-md mx-auto px-4 h-16 flex items-center justify-between">
+				<a href="/" class="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+					GlobalFeed
+				</a>
+				<div class="flex gap-4">
+					<span class="text-sm text-gray-400">Discover China</span>
+				</div>
+			</div>
+		</nav>
+		<main class="max-w-screen-md mx-auto px-0 md:px-4">
+			<slot />
+		</main>
+		<footer class="py-10 text-center text-gray-500 text-sm border-t border-gray-900 mt-10">
+			<p>© 2026 GlobalFeed. Powered by AI.</p>
+		</footer>
+	</body>
+</html>
+<style is:global>
+	:root {
+		--accent: 136, 58, 234;
+		--accent-light: 224, 204, 250;
+		--accent-dark: 49, 10, 101;
+		--accent-gradient: linear-gradient(
+			45deg,
+			rgb(var(--accent)),
+			rgb(var(--accent-light)) 30%,
+			white 60%
+		);
+	}
+	html {
+		font-family: system-ui, sans-serif;
+	}
+	body {
+		margin: 0;
+	}
+</style>
