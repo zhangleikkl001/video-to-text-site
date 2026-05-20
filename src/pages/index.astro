@@ -4,19 +4,58 @@ import { getCollection } from 'astro:content';
 
 const posts = await getCollection('posts');
 const sortedPosts = posts.sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+
+// 语言信息
+const LANG_EMOJI = { "en": "🇬🇧", "es": "🇪🇸", "fr": "🇫🇷", "de": "🇩🇪", "ja": "🇯🇵" };
+const LANG_BADGES = { "en": "EN", "es": "ES", "fr": "FR", "de": "DE", "ja": "JA" };
+
+// 提取每个文章的语言
+function getLang(slug) {
+	const suffixes = ["-en", "-es", "-fr", "-de", "-ja"];
+	for (const s of suffixes) {
+		if (slug.endsWith(s)) return s.slice(1);
+	}
+	return "zh";
+}
+
+// 去重：同一篇文章只显示一个版本（优先英文）
+function deduplicate(posts) {
+	const seen = new Set();
+	const result = [];
+	for (const post of posts) {
+		const slug = post.slug;
+		const base = slug.replace(/-(en|es|fr|de|ja)$/, '');
+		if (!seen.has(base)) {
+			seen.add(base);
+			result.push(post);
+		}
+	}
+	return result;
+}
+const displayPosts = deduplicate(sortedPosts);
 ---
 
 <Layout title="GlobalFeed - Discover China through AI">
 	<div class="py-8 space-y-12">
-		{sortedPosts.map((post) => (
-			<article class="bg-gray-900 rounded-2xl overflow-hidden border border-gray-800 hover:border-blue-500/50 transition-all group">
+		{displayPosts.map((post) => {
+			const lang = getLang(post.slug);
+			return (
+			<article class="bg-gray-900 rounded-2xl overflow-hidden border border-gray-800 hover:border-blue-500/50 transition-all group relative">
 				<a href={`/posts/${post.slug}`} class="block">
-					<div class="aspect-video overflow-hidden">
+					<div class="aspect-video overflow-hidden relative">
+						{post.data.cover_image && post.data.cover_image != "" && (
 						<img 
 							src={post.data.cover_image} 
 							alt={post.data.title}
 							class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
 						/>
+						)}
+						<!-- 语言标签 -->
+						{lang && LANG_BADGES[lang] && (
+						<span class="absolute top-3 right-3 px-2 py-1 bg-black/60 text-white text-xs font-semibold rounded-full backdrop-blur-sm">
+							{LANG_EMOJI[lang] || ''} {LANG_BADGES[lang]}
+						</span>
+						)}
 					</div>
 					<div class="p-6">
 						<div class="flex items-center gap-2 mb-3">
@@ -24,14 +63,14 @@ const sortedPosts = posts.sort((a, b) => b.data.date.valueOf() - a.data.date.val
 								{post.data.category}
 							</span>
 							<span class="text-gray-500 text-xs">
-								{post.data.date.toLocaleDateString()}
+								{new Date(post.data.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
 							</span>
 						</div>
 						<h2 class="text-2xl font-bold text-white mb-3 group-hover:text-blue-400 transition-colors">
 							{post.data.title}
 						</h2>
 						<p class="text-gray-400 line-clamp-2 mb-4">
-							{post.body.substring(0, 150)}...
+							{post.body ? post.body.substring(0, 150) : ''}...
 						</p>
 						<div class="flex flex-wrap gap-2">
 							{post.data.tags.map((tag) => (
@@ -41,6 +80,7 @@ const sortedPosts = posts.sort((a, b) => b.data.date.valueOf() - a.data.date.val
 					</div>
 				</a>
 			</article>
-		))}
+			);
+		})}
 	</div>
 </Layout>

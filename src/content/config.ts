@@ -8,7 +8,9 @@ const posts = defineCollection({
 		category: z.string(),
 		tags: z.array(z.string()),
 		cover_image: z.string(),
-		original_video_url: z.string().optional(),
+		original_url: z.string().optional(),
+		lang: z.string().optional(),
+		source: z.string().optional(),
 	}),
 });
 
