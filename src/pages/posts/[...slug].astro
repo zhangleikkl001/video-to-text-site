@@ -89,16 +89,7 @@ const publishDate = entry.data.date ? new Date(entry.data.date).toLocaleDateStri
 					<span class="text-sm text-gray-500 font-mono italic">#{tag}</span>
 				))}
 			</div>
-			<!-- 来源链接 -->
-			{entry.data.original_url && (
-				<div class="text-sm text-gray-500">
-					📎 Source: 
-					<a href={entry.data.original_url} target="_blank" class="text-blue-400 hover:underline ml-1">
-						{entry.data.source || "Original Article"} ↗
-					</a>
-				</div>
-			)}
-		</div>
+</div>
 	</article>
 </Layout>
 
