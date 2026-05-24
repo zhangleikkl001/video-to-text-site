@@ -1,56 +1,115 @@
 ---
-interface Props {
-	title: string;
+import { PUBLIC_SITE_URL } from '../lib/content';
+
+interface AlternateLink {
+	lang: string;
+	href: string;
 }
 
-const { title } = Astro.props;
+interface Props {
+	title: string;
+	description?: string;
+	lang?: string;
+	canonical?: string;
+	robots?: string;
+	alternates?: AlternateLink[];
+	ogImage?: string;
+	ogType?: string;
+}
+
+const {
+	title,
+	description = 'Discover China through multilingual stories, categories, and curated tags.',
+	lang = 'en',
+	canonical,
+	robots = 'index,follow',
+	alternates = [],
+	ogImage,
+	ogType = 'website',
+} = Astro.props;
+
+const canonicalUrl = canonical || new URL(Astro.url.pathname, PUBLIC_SITE_URL).toString();
 ---
 
 <!doctype html>
-<html lang="en" class="bg-gray-950 text-gray-100">
+<html lang={lang} class="bg-[#050816] text-slate-100">
 	<head>
 		<meta charset="UTF-8" />
-		<meta name="description" content="Global short video to text platform" />
-		<meta name="viewport" content="width=device-width" />
+		<meta name="description" content={description} />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="robots" content={robots} />
+		<link rel="canonical" href={canonicalUrl} />
+		<meta property="og:url" content={canonicalUrl} />
+		<meta property="og:title" content={title} />
+		<meta property="og:description" content={description} />
+		<meta property="og:type" content={ogType} />
+		{ogImage ? <meta property="og:image" content={ogImage} /> : null}
+		<meta name="twitter:card" content={ogImage ? 'summary_large_image' : 'summary'} />
+		{ogImage ? <meta name="twitter:image" content={ogImage} /> : null}
+		<meta name="twitter:title" content={title} />
+		<meta name="twitter:description" content={description} />
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 		<meta name="generator" content={Astro.generator} />
+		{alternates.map((alternate) => <link rel="alternate" hreflang={alternate.lang} href={alternate.href} />)}
 		<title>{title}</title>
 	</head>
-	<body class="min-h-screen">
-		<nav class="sticky top-0 z-50 bg-gray-950/80 backdrop-blur-md border-b border-gray-800">
-			<div class="max-w-screen-md mx-auto px-4 h-16 flex items-center justify-between">
-				<a href="/" class="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
-					GlobalFeed
+	<body class="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(120,119,198,0.18),_transparent_34%),radial-gradient(circle_at_80%_0%,_rgba(56,189,248,0.12),_transparent_28%),linear-gradient(180deg,_#050816_0%,_#090d1c_50%,_#050816_100%)]">
+		<header class="sticky top-0 z-50 border-b border-white/8 bg-slate-950/70 backdrop-blur-xl">
+			<div class="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+				<a href="/" class="group inline-flex items-center gap-3">
+					<span class="grid h-10 w-10 place-items-center rounded-2xl bg-gradient-to-br from-cyan-400 via-blue-500 to-violet-600 text-sm font-black text-white shadow-lg shadow-cyan-500/20 transition-transform group-hover:-translate-y-0.5">
+						GF
+					</span>
+					<div>
+						<div class="text-sm font-semibold tracking-[0.25em] text-cyan-300 uppercase">GlobalFeed</div>
+						<div class="text-xs text-slate-400">Discover China through AI</div>
+					</div>
 				</a>
-				<div class="flex gap-4">
-					<span class="text-sm text-gray-400">Discover China</span>
-				</div>
+
+				<nav class="hidden items-center gap-2 md:flex">
+					<a href="/" class="rounded-full px-4 py-2 text-sm text-slate-300 transition hover:bg-white/6 hover:text-white">Home</a>
+					<a href="/search/" class="rounded-full px-4 py-2 text-sm text-slate-300 transition hover:bg-white/6 hover:text-white">Search</a>
+					<a href="/hot/" class="rounded-full px-4 py-2 text-sm text-slate-300 transition hover:bg-white/6 hover:text-white">Trending</a>
+					<a href="/categories/" class="rounded-full px-4 py-2 text-sm text-slate-300 transition hover:bg-white/6 hover:text-white">Categories</a>
+					<a href="/tags/" class="rounded-full px-4 py-2 text-sm text-slate-300 transition hover:bg-white/6 hover:text-white">Popular Tags</a>
+				</nav>
 			</div>
-		</nav>
-		<main class="max-w-screen-md mx-auto px-0 md:px-4">
+		</header>
+		<main class="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
 			<slot />
 		</main>
-		<footer class="py-10 text-center text-gray-500 text-sm border-t border-gray-900 mt-10">
-			<p>© 2026 GlobalFeed. Powered by AI.</p>
+		<footer class="mt-16 border-t border-white/8 bg-slate-950/40">
+			<div class="mx-auto max-w-7xl px-4 py-10 text-sm text-slate-500 sm:px-6 lg:px-8">
+				<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+					<p>© 2026 GlobalFeed. Curated multilingual travel and culture stories.</p>
+					<p class="text-slate-400">Built for fast browsing, social sharing, and topic discovery.</p>
+				</div>
+			</div>
 		</footer>
 	</body>
 </html>
 <style is:global>
 	:root {
-		--accent: 136, 58, 234;
-		--accent-light: 224, 204, 250;
-		--accent-dark: 49, 10, 101;
-		--accent-gradient: linear-gradient(
-			45deg,
-			rgb(var(--accent)),
-			rgb(var(--accent-light)) 30%,
-			white 60%
-		);
+		color-scheme: dark;
+		--accent: 34 211 238;
+		--accent-2: 59 130 246;
 	}
+
 	html {
-		font-family: system-ui, sans-serif;
+		font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+		scroll-behavior: smooth;
 	}
+
 	body {
 		margin: 0;
+	}
+
+	a {
+		text-decoration: none;
+	}
+
+	::selection {
+		background: rgb(59 130 246 / 0.28);
+		color: white;
 	}
 </style>

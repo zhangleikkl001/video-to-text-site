@@ -1,0 +1,83 @@
+---
+import { getCollection } from 'astro:content';
+import Layout from '../../layouts/Layout.astro';
+import { filterPublicPosts, deduplicateByBaseSlug, filterPostsByCategory, getCategoryStats, excerptFromBody, slugify, sortLatest } from '../../lib/content';
+
+export async function getStaticPaths() {
+	const posts = filterPublicPosts(await getCollection('posts'));
+	return getCategoryStats(posts).map((category) => ({
+		params: { category: category.slug },
+		props: { category },
+	}));
+}
+
+const { category } = Astro.props;
+const posts = filterPublicPosts(await getCollection('posts'));
+const uniquePosts = deduplicateByBaseSlug(sortLatest(posts));
+const categoryPosts = uniquePosts.filter((post) => slugify(post.data.category) === category.slug);
+const categoryCount = categoryPosts.length;
+const highlightPosts = filterPostsByCategory(posts, category.name).slice(0, 3);
+---
+
+<Layout title={`${category.name} - GlobalFeed`} description={`Browse ${category.name} stories on GlobalFeed.`} lang="en">
+	<section class="px-4 py-10 sm:px-6 lg:px-8">
+		<div class="mb-8 max-w-3xl">
+			<a href="/categories/" class="text-sm text-cyan-300 transition hover:text-cyan-200">← All categories</a>
+			<h1 class="mt-3 text-4xl font-black tracking-tight text-white sm:text-5xl">{category.name}</h1>
+			<p class="mt-4 text-lg leading-8 text-slate-300">{categoryCount} article{categoryCount === 1 ? '' : 's'} in this topic.</p>
+		</div>
+
+		<div class="grid gap-6 lg:grid-cols-[1.4fr_0.9fr]">
+			<div class="space-y-4">
+				{categoryPosts.map((post) => (
+					<article class="rounded-[2rem] border border-white/10 bg-white/5 p-5 shadow-2xl shadow-black/20 backdrop-blur-xl transition hover:border-cyan-400/25 hover:bg-white/10">
+						<a href={`/posts/${post.slug}/`} class="grid gap-4 md:grid-cols-[220px_1fr] md:items-center">
+							<div class="overflow-hidden rounded-2xl bg-slate-900 aspect-[16/10] md:aspect-auto md:h-32">
+								{post.data.cover_image ? (
+									<img src={post.data.cover_image} alt={post.data.title} loading="lazy" decoding="async" class="h-full w-full object-cover transition duration-500 hover:scale-105" />
+								) : (
+									<div class="grid h-full w-full place-items-center text-xs text-slate-500">No cover</div>
+								)}
+							</div>
+							<div class="space-y-3">
+								<div class="flex flex-wrap items-center gap-2 text-xs text-slate-400">
+									<span class="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2.5 py-1 text-cyan-200">{post.data.category}</span>
+									<span>{new Date(post.data.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+								</div>
+								<h2 class="text-2xl font-bold text-white transition hover:text-cyan-300">{post.data.title}</h2>
+								<p class="text-sm leading-7 text-slate-400">{excerptFromBody(post.body, 180)}</p>
+								<div class="flex flex-wrap gap-2 pt-1">
+									{post.data.tags.slice(0, 5).map((tag) => (
+										<a href={`/tags/${slugify(tag)}/`} class="rounded-full border border-white/10 bg-slate-950/60 px-3 py-1 text-xs text-slate-300 transition hover:border-cyan-400/30 hover:bg-cyan-400/10 hover:text-cyan-200">#{tag}</a>
+									))}
+								</div>
+							</div>
+						</a>
+					</article>
+				))}
+			</div>
+
+			<aside class="space-y-6 lg:sticky lg:top-24 lg:self-start">
+				<section class="rounded-[2rem] border border-white/10 bg-white/5 p-6 backdrop-blur-xl">
+					<h2 class="text-lg font-semibold text-white">Trending in {category.name}</h2>
+					<p class="mt-2 text-sm text-slate-400">A quick shortlist from the same topic.</p>
+					<div class="mt-4 space-y-3">
+						{highlightPosts.map((post) => (
+							<a href={`/posts/${post.slug}/`} class="block rounded-2xl border border-white/10 bg-slate-950/60 p-4 transition hover:border-cyan-400/25 hover:bg-slate-950/80">
+								<h3 class="text-sm font-semibold text-white">{post.data.title}</h3>
+								<p class="mt-2 text-xs leading-5 text-slate-400">{excerptFromBody(post.body, 100)}</p>
+							</a>
+						))}
+					</div>
+				</section>
+
+				<section class="rounded-[2rem] border border-cyan-400/20 bg-gradient-to-br from-cyan-400/10 to-blue-500/5 p-6 backdrop-blur-xl">
+					<h2 class="text-lg font-semibold text-white">Share this topic</h2>
+					<p class="mt-2 text-sm leading-6 text-slate-300">
+						Topic pages make it easy to discover similar stories and share a whole reading path, not just a single post.
+					</p>
+				</section>
+			</aside>
+		</div>
+	</section>
+</Layout>

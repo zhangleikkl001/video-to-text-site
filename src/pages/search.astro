@@ -1,0 +1,190 @@
+---
+import { getCollection } from 'astro:content';
+import Layout from '../layouts/Layout.astro';
+import { filterPublicPosts, buildSearchIndex, getCategoryStats, getTagStats } from '../lib/content';
+
+const posts = filterPublicPosts(await getCollection('posts'));
+const searchIndex = buildSearchIndex(posts);
+const categories = getCategoryStats(posts).slice(0, 8);
+const popularTags = getTagStats(posts).slice(0, 12);
+---
+
+<Layout title="Search - GlobalFeed" description="Search GlobalFeed by title, category, tags, and article content." lang="en" robots="noindex,follow">
+	<section class="px-4 py-10 sm:px-6 lg:px-8">
+		<div class="max-w-4xl">
+			<p class="text-sm font-semibold uppercase tracking-[0.3em] text-cyan-300">Search</p>
+			<h1 class="mt-3 text-4xl font-black tracking-tight text-white sm:text-5xl">Find articles fast</h1>
+			<p class="mt-4 text-lg leading-8 text-slate-300">
+				Search by title, category, tag, or article excerpt. Built for quick discovery on mobile and desktop.
+			</p>
+		</div>
+
+		<div class="mt-8 grid gap-6 lg:grid-cols-[1.3fr_0.7fr]">
+			<div class="rounded-[2rem] border border-white/10 bg-white/5 p-6 shadow-2xl shadow-black/20 backdrop-blur-xl sm:p-8">
+				<form id="search-form" class="space-y-4">
+					<label class="block">
+						<span class="mb-2 block text-sm font-medium text-slate-300">Keyword</span>
+						<div class="flex flex-col gap-3 md:flex-row">
+							<input id="search-input" type="search" name="q" placeholder="Search title, category, tag, or keywords..." class="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-4 text-base text-white outline-none ring-0 transition placeholder:text-slate-500 focus:border-cyan-400/40 focus:bg-slate-950" />
+							<button type="submit" class="rounded-2xl border border-cyan-400/25 bg-cyan-400 px-5 py-4 text-base font-semibold text-slate-950 transition hover:bg-cyan-300">Search</button>
+						</div>
+					</label>
+
+					<div class="flex flex-wrap gap-2">
+						<button type="button" class="quick-filter rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-slate-300 transition hover:border-cyan-400/30 hover:bg-cyan-400/10 hover:text-cyan-200" data-query="travel">#travel</button>
+						<button type="button" class="quick-filter rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-slate-300 transition hover:border-cyan-400/30 hover:bg-cyan-400/10 hover:text-cyan-200" data-query="food">#food</button>
+						<button type="button" class="quick-filter rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-slate-300 transition hover:border-cyan-400/30 hover:bg-cyan-400/10 hover:text-cyan-200" data-query="culture">#culture</button>
+						<button type="button" class="quick-filter rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-slate-300 transition hover:border-cyan-400/30 hover:bg-cyan-400/10 hover:text-cyan-200" data-query="city">#city</button>
+					</div>
+				</form>
+
+				<div class="mt-6 flex items-center justify-between gap-3 text-sm text-slate-400">
+					<div id="results-meta">Showing featured stories</div>
+					<div id="results-count"></div>
+				</div>
+
+				<div id="results" class="mt-5 space-y-4"></div>
+			</div>
+
+			<aside class="space-y-6 lg:sticky lg:top-24 lg:self-start">
+				<section class="rounded-[2rem] border border-white/10 bg-white/5 p-6 backdrop-blur-xl">
+					<div class="mb-4 flex items-center justify-between">
+						<h2 class="text-lg font-semibold text-white">Popular tags</h2>
+						<a href="/tags/" class="text-sm text-cyan-300 transition hover:text-cyan-200">View all</a>
+					</div>
+					<div class="flex flex-wrap gap-2">
+						{popularTags.map((tag) => (
+							<a href={`/search/?q=${encodeURIComponent(tag.name)}`} class="rounded-full border border-white/10 bg-slate-950/60 px-4 py-2 text-sm text-slate-300 transition hover:border-cyan-400/30 hover:bg-cyan-400/10 hover:text-cyan-200">#{tag.name}</a>
+						))}
+					</div>
+				</section>
+
+				<section class="rounded-[2rem] border border-white/10 bg-white/5 p-6 backdrop-blur-xl">
+					<div class="mb-4 flex items-center justify-between">
+						<h2 class="text-lg font-semibold text-white">Categories</h2>
+						<a href="/categories/" class="text-sm text-cyan-300 transition hover:text-cyan-200">View all</a>
+					</div>
+					<div class="flex flex-wrap gap-2">
+						{categories.map((category) => (
+							<a href={`/search/?q=${encodeURIComponent(category.name)}`} class="rounded-full border border-white/10 bg-slate-950/60 px-4 py-2 text-sm text-slate-300 transition hover:border-cyan-400/30 hover:bg-cyan-400/10 hover:text-cyan-200">
+								{category.name}
+								<span class="ml-1 text-xs text-slate-500">{category.count}</span>
+							</a>
+						))}
+					</div>
+				</section>
+			</aside>
+		</div>
+	</section>
+
+	<script is:inline type="application/json" id="search-index">{JSON.stringify(searchIndex)}</script>
+	<script is:inline>
+		const indexNode = document.getElementById('search-index');
+		const input = document.getElementById('search-input');
+		const form = document.getElementById('search-form');
+		const results = document.getElementById('results');
+		const resultsCount = document.getElementById('results-count');
+		const resultsMeta = document.getElementById('results-meta');
+		const quickFilters = document.querySelectorAll('.quick-filter');
+
+		const rawIndex = indexNode ? JSON.parse(indexNode.textContent || '[]') : [];
+		const params = new URLSearchParams(window.location.search);
+		const initialQuery = params.get('q') || '';
+		if (input) input.value = initialQuery;
+
+		const escapeHtml = (value) => String(value)
+			.replaceAll('&', '&amp;')
+			.replaceAll('<', '&lt;')
+			.replaceAll('>', '&gt;')
+			.replaceAll('"', '&quot;')
+			.replaceAll("'", '&#39;');
+
+		const normalize = (value) => String(value || '')
+			.toLowerCase()
+			.normalize('NFKD')
+			.replace(/[\u0300-\u036f]/g, '')
+			.replace(/[^\p{L}\p{N}\s-]/gu, ' ')
+			.replace(/\s+/g, ' ')
+			.trim();
+
+		const render = (query) => {
+			const normalized = normalize(query);
+			const tokens = normalized ? normalized.split(' ').filter(Boolean) : [];
+			const matches = tokens.length === 0
+				? rawIndex.slice(0, 12)
+				: rawIndex
+					.map((post) => {
+						const haystack = post.searchText;
+						const score = tokens.reduce((total, token) => total + (haystack.includes(token) ? 1 : 0), 0)
+							+ (post.title.toLowerCase().includes(normalized) ? 3 : 0)
+							+ (post.category.toLowerCase().includes(normalized) ? 2 : 0)
+							+ ((post.tags || []).some((tag) => normalize(tag).includes(normalized)) ? 2 : 0);
+						return { post, score };
+					})
+					.filter(({ score }) => score > 0)
+					.sort((a, b) => b.score - a.score || new Date(b.post.date).valueOf() - new Date(a.post.date).valueOf())
+					.slice(0, 30)
+					.map(({ post }) => post);
+
+			if (resultsCount) {
+				resultsCount.textContent = tokens.length === 0 ? `${matches.length} featured` : `${matches.length} result${matches.length === 1 ? '' : 's'}`;
+			}
+			if (resultsMeta) {
+				resultsMeta.textContent = tokens.length === 0 ? 'Showing featured stories' : `Results for "${query.trim()}"`;
+			}
+
+			if (!matches.length) {
+				results.innerHTML = `
+					<div class="rounded-3xl border border-white/10 bg-slate-950/60 p-6 text-sm text-slate-400">
+						No results found. Try a broader keyword, category, or tag.
+					</div>`;
+				return;
+			}
+
+			results.innerHTML = matches.map((post) => {
+				const tags = (post.tags || []).slice(0, 4).map((tag) => `<a href="/search/?q=${encodeURIComponent(tag)}" class="rounded-full bg-white/5 px-2.5 py-1 text-xs text-slate-300 transition hover:bg-cyan-400/10 hover:text-cyan-200">#${escapeHtml(tag)}</a>`).join('');
+				return `
+					<a href="${post.url}" class="group grid gap-4 rounded-3xl border border-white/10 bg-slate-950/60 p-4 transition hover:border-cyan-400/25 hover:bg-slate-950/80 md:grid-cols-[160px_1fr] md:items-center">
+						<div class="overflow-hidden rounded-2xl bg-slate-900 aspect-[16/10] md:aspect-auto md:h-28">
+							${post.coverImage ? `<img src="${escapeHtml(post.coverImage)}" alt="${escapeHtml(post.title)}" loading="lazy" decoding="async" class="h-full w-full object-cover transition duration-500 group-hover:scale-105" />` : '<div class="grid h-full w-full place-items-center text-xs text-slate-500">No cover</div>'}
+						</div>
+						<div class="space-y-2 min-w-0">
+							<div class="flex flex-wrap items-center gap-2 text-xs text-slate-400">
+								<span class="rounded-full border border-white/10 px-2.5 py-1 text-slate-300">${escapeHtml(post.category)}</span>
+								<span>${new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(post.date))}</span>
+								<span class="rounded-full border border-white/10 px-2.5 py-1 text-slate-300">${escapeHtml(post.lang.toUpperCase())}</span>
+							</div>
+							<h2 class="truncate text-lg font-semibold text-white transition group-hover:text-cyan-300">${escapeHtml(post.title)}</h2>
+							<p class="line-clamp-2 text-sm leading-6 text-slate-400">${escapeHtml(post.excerpt)}</p>
+							<div class="flex flex-wrap gap-2 pt-1">${tags}</div>
+						</div>
+					</a>`;
+			}).join('');
+		};
+
+		if (form) {
+			form.addEventListener('submit', (event) => {
+				event.preventDefault();
+				const q = input ? input.value : '';
+				const url = new URL(window.location.href);
+				if (q.trim()) url.searchParams.set('q', q.trim());
+				else url.searchParams.delete('q');
+				history.replaceState({}, '', url);
+				render(q);
+			});
+		}
+
+		quickFilters.forEach((button) => {
+			button.addEventListener('click', () => {
+				const q = button.getAttribute('data-query') || '';
+				if (input) input.value = q;
+				const url = new URL(window.location.href);
+				url.searchParams.set('q', q);
+				history.replaceState({}, '', url);
+				render(q);
+			});
+		});
+
+		render(initialQuery);
+	</script>
+</Layout>

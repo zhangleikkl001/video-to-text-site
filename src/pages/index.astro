@@ -1,86 +1,241 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import { getCollection } from 'astro:content';
+import {
+	filterPublicPosts,
+	deduplicateByBaseSlug,
+	excerptFromBody,
+	getCategoryStats,
+	getLangFromSlug,
+	getTagStats,
+	getTrendingPosts,
+	sortLatest,
+	slugify,
+} from '../lib/content';
 
-const posts = await getCollection('posts');
-const sortedPosts = posts.sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+const posts = filterPublicPosts(await getCollection('posts'));
+const sortedPosts = sortLatest(posts);
+const displayPosts = deduplicateByBaseSlug(sortedPosts);
+const featuredPosts = displayPosts.slice(0, 3);
+const recentPosts = displayPosts.slice(0, 8);
+const categoryStats = getCategoryStats(posts).slice(0, 8);
+const popularTags = getTagStats(posts).slice(0, 14);
+const trendingPosts = getTrendingPosts(posts, 6);
 
-// 语言信息
-const LANG_EMOJI = { "en": "🇬🇧", "es": "🇪🇸", "fr": "🇫🇷", "de": "🇩🇪", "ja": "🇯🇵" };
-const LANG_BADGES = { "en": "EN", "es": "ES", "fr": "FR", "de": "DE", "ja": "JA" };
+const totalArticles = displayPosts.length;
+const totalCategories = categoryStats.length;
+const totalTags = popularTags.length;
 
-// 提取每个文章的语言
-function getLang(slug) {
-	const suffixes = ["-en", "-es", "-fr", "-de", "-ja"];
-	for (const s of suffixes) {
-		if (slug.endsWith(s)) return s.slice(1);
-	}
-	return "zh";
-}
-
-// 去重：同一篇文章只显示一个版本（优先英文）
-function deduplicate(posts) {
-	const seen = new Set();
-	const result = [];
-	for (const post of posts) {
-		const slug = post.slug;
-		const base = slug.replace(/-(en|es|fr|de|ja)$/, '');
-		if (!seen.has(base)) {
-			seen.add(base);
-			result.push(post);
-		}
-	}
-	return result;
-}
-const displayPosts = deduplicate(sortedPosts);
+const LANG_EMOJI = { en: '🇬🇧', es: '🇪🇸', fr: '🇫🇷', de: '🇩🇪', ja: '🇯🇵' };
+const LANG_BADGES = { en: 'EN', es: 'ES', fr: 'FR', de: 'DE', ja: 'JA' };
 ---
 
-<Layout title="GlobalFeed - Discover China through AI">
-	<div class="py-8 space-y-12">
-		{displayPosts.map((post) => {
-			const lang = getLang(post.slug);
-			return (
-			<article class="bg-gray-900 rounded-2xl overflow-hidden border border-gray-800 hover:border-blue-500/50 transition-all group relative">
-				<a href={`/posts/${post.slug}`} class="block">
-					<div class="aspect-video overflow-hidden relative">
-						{post.data.cover_image && post.data.cover_image != "" && (
-						<img 
-							src={post.data.cover_image} 
-							alt={post.data.title}
-							class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-						/>
-						)}
-						<!-- 语言标签 -->
-						{lang && LANG_BADGES[lang] && (
-						<span class="absolute top-3 right-3 px-2 py-1 bg-black/60 text-white text-xs font-semibold rounded-full backdrop-blur-sm">
-							{LANG_EMOJI[lang] || ''} {LANG_BADGES[lang]}
-						</span>
-						)}
+<Layout title="GlobalFeed — Discover China through AI" description="Explore multilingual travel, culture, food, and city stories with categories, popular tags, and social sharing." lang="en">
+	<section class="pt-8 pb-6 lg:pt-12">
+		<div class="grid gap-8 lg:grid-cols-[1.5fr_0.9fr] lg:items-end">
+			<div class="space-y-6">
+				<div class="inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm text-cyan-200 shadow-lg shadow-cyan-500/5">
+					<span class="h-2 w-2 rounded-full bg-cyan-300"></span>
+					Multilingual travel + culture magazine
+				</div>
+				<div class="space-y-4 max-w-3xl">
+					<h1 class="text-4xl font-black tracking-tight text-white sm:text-5xl lg:text-6xl">
+						Discover China through stories worth sharing.
+					</h1>
+					<p class="text-lg leading-8 text-slate-300 sm:text-xl">
+						Browse carefully curated articles with clean categories, popular tags, and one-click social sharing — built for readers on mobile and desktop.
+					</p>
+				</div>
+				<div class="flex flex-wrap gap-3">
+					<a href="#latest" class="rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:-translate-y-0.5 hover:bg-cyan-100">Browse latest</a>
+					<a href="/search/" class="rounded-full border border-cyan-400/25 bg-cyan-400/10 px-5 py-3 text-sm font-semibold text-cyan-100 transition hover:border-cyan-300/50 hover:bg-cyan-400/15">Search site</a>
+					<a href="/hot/" class="rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-white transition hover:border-cyan-400/40 hover:bg-white/10">Trending now</a>
+					<a href="/categories/" class="rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-white transition hover:border-cyan-400/40 hover:bg-white/10">Explore categories</a>
+					<a href="/tags/" class="rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-white transition hover:border-cyan-400/40 hover:bg-white/10">Popular tags</a>
+				</div>
+			</div>
+
+			<div class="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
+				<div class="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur-xl">
+					<div class="text-sm text-slate-400">Articles</div>
+					<div class="mt-2 text-3xl font-black text-white">{totalArticles}</div>
+				</div>
+				<div class="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur-xl">
+					<div class="text-sm text-slate-400">Categories</div>
+					<div class="mt-2 text-3xl font-black text-white">{totalCategories}</div>
+				</div>
+				<div class="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur-xl">
+					<div class="text-sm text-slate-400">Popular tags</div>
+					<div class="mt-2 text-3xl font-black text-white">{totalTags}</div>
+				</div>
+			</div>
+		</div>
+	</section>
+
+	<section class="grid gap-6 lg:grid-cols-[1.4fr_0.9fr]">
+		<div class="space-y-6">
+			<div class="rounded-[2rem] border border-white/10 bg-white/5 p-6 shadow-2xl shadow-black/20 backdrop-blur-xl">
+				<div class="mb-4 flex items-center justify-between gap-3">
+					<div>
+						<h2 class="text-lg font-semibold text-white">Featured stories</h2>
+						<p class="text-sm text-slate-400">A quick sample of what’s trending now.</p>
 					</div>
-					<div class="p-6">
-						<div class="flex items-center gap-2 mb-3">
-							<span class="px-2 py-1 bg-blue-500/10 text-blue-400 text-xs font-medium rounded uppercase tracking-wider">
-								{post.data.category}
-							</span>
-							<span class="text-gray-500 text-xs">
-								{new Date(post.data.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-							</span>
-						</div>
-						<h2 class="text-2xl font-bold text-white mb-3 group-hover:text-blue-400 transition-colors">
-							{post.data.title}
-						</h2>
-						<p class="text-gray-400 line-clamp-2 mb-4">
-							{post.body ? post.body.substring(0, 150) : ''}...
-						</p>
-						<div class="flex flex-wrap gap-2">
-							{post.data.tags.map((tag) => (
-								<span class="text-xs text-gray-500 font-mono italic">#{tag}</span>
-							))}
-						</div>
+					<a href="#latest" class="text-sm text-cyan-300 transition hover:text-cyan-200">See all →</a>
+				</div>
+
+				<div class="grid gap-4 md:grid-cols-3">
+					{featuredPosts.map((post) => {
+						const lang = getLangFromSlug(post.slug);
+						const categorySlug = slugify(post.data.category);
+						return (
+							<article class="group overflow-hidden rounded-3xl border border-white/10 bg-slate-950/70 transition hover:-translate-y-1 hover:border-cyan-400/30">
+								<a href={`/posts/${post.slug}/`} class="block h-full">
+									<div class="relative aspect-[4/3] overflow-hidden bg-slate-900">
+										{post.data.cover_image ? (
+											<img src={post.data.cover_image} alt={post.data.title} loading="lazy" decoding="async" class="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+										) : (
+											<div class="flex h-full items-end bg-[linear-gradient(180deg,rgba(15,23,42,0.25)_0%,rgba(8,15,40,0.88)_100%)] p-5">
+												<div class="text-sm font-medium text-slate-200">No cover image</div>
+											</div>
+										)}
+										<div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/15 to-transparent"></div>
+										<div class="absolute left-3 top-3 flex items-center gap-2">
+											<span class="rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-semibold tracking-wide text-white backdrop-blur-sm">{post.data.category}</span>
+											{LANG_BADGES[lang] && (
+												<span class="rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-sm">{LANG_EMOJI[lang]} {LANG_BADGES[lang]}</span>
+											)}
+										</div>
+									</div>
+									<div class="space-y-3 p-5">
+										<div class="flex items-center gap-2 text-xs text-slate-400">
+											<span>{new Date(post.data.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+											<span class="h-1 w-1 rounded-full bg-slate-600"></span>
+											<a href={`/categories/${categorySlug}/`} class="transition hover:text-cyan-300">Category</a>
+										</div>
+										<h3 class="text-xl font-bold leading-snug text-white transition group-hover:text-cyan-300">
+											{post.data.title}
+										</h3>
+										<p class="text-sm leading-6 text-slate-400">
+											{excerptFromBody(post.body, 120)}
+										</p>
+									</div>
+								</a>
+							</article>
+						);
+					})}
+				</div>
+			</div>
+
+			<div id="latest" class="rounded-[2rem] border border-white/10 bg-white/5 p-6 shadow-2xl shadow-black/20 backdrop-blur-xl">
+				<div class="mb-5 flex items-center justify-between gap-3">
+					<div>
+						<h2 class="text-lg font-semibold text-white">Latest articles</h2>
+						<p class="text-sm text-slate-400">Newest posts across all categories.</p>
 					</div>
-				</a>
-			</article>
-			);
-		})}
-	</div>
+					<a href="/categories/" class="text-sm text-cyan-300 transition hover:text-cyan-200">All categories →</a>
+				</div>
+
+				<div class="space-y-4">
+					{recentPosts.map((post) => {
+						const lang = getLangFromSlug(post.slug);
+						const categorySlug = slugify(post.data.category);
+						return (
+							<article class="group rounded-3xl border border-white/10 bg-slate-950/55 p-4 transition hover:border-cyan-400/25 hover:bg-slate-950/80">
+								<a href={`/posts/${post.slug}/`} class="grid gap-4 md:grid-cols-[180px_1fr] md:items-center">
+									<div class="overflow-hidden rounded-2xl bg-slate-900 aspect-[16/10] md:aspect-auto md:h-28">
+										{post.data.cover_image ? (
+											<img src={post.data.cover_image} alt={post.data.title} loading="lazy" decoding="async" class="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+										) : (
+											<div class="flex h-full items-center justify-center text-xs text-slate-500">No cover</div>
+										)}
+									</div>
+									<div class="space-y-2">
+										<div class="flex flex-wrap items-center gap-2 text-xs text-slate-400">
+											<span class="rounded-full border border-white/10 px-2.5 py-1 text-slate-300">{post.data.category}</span>
+											<span>{new Date(post.data.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+											{LANG_BADGES[lang] && <span>{LANG_EMOJI[lang]} {LANG_BADGES[lang]}</span>}
+										</div>
+										<h3 class="text-lg font-semibold text-white transition group-hover:text-cyan-300">{post.data.title}</h3>
+										<p class="text-sm text-slate-400">{excerptFromBody(post.body, 140)}</p>
+										<div class="flex flex-wrap gap-2 pt-1">
+											{post.data.tags.slice(0, 4).map((tag) => (
+												<a href={`/tags/${slugify(tag)}/`} class="rounded-full bg-white/5 px-3 py-1 text-xs text-slate-300 transition hover:bg-cyan-400/10 hover:text-cyan-200">
+													#{tag}
+												</a>
+											))}
+										</div>
+									</div>
+								</a>
+							</article>
+						);
+					})}
+				</div>
+			</div>
+		</div>
+
+		<aside class="space-y-6 lg:sticky lg:top-24 lg:self-start">
+			<section class="rounded-[2rem] border border-white/10 bg-white/5 p-6 backdrop-blur-xl">
+				<div class="mb-4 flex items-center justify-between">
+					<h2 class="text-lg font-semibold text-white">Categories</h2>
+					<a href="/categories/" class="text-sm text-cyan-300 transition hover:text-cyan-200">View all</a>
+				</div>
+				<div class="flex flex-wrap gap-2">
+					{categoryStats.map((category) => (
+						<a href={`/categories/${category.slug}/`} class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-slate-950/55 px-4 py-2 text-sm text-slate-200 transition hover:border-cyan-400/30 hover:bg-cyan-400/10 hover:text-cyan-200">
+							<span>{category.name}</span>
+							<span class="text-xs text-slate-400">{category.count}</span>
+						</a>
+					))}
+				</div>
+			</section>
+
+			<section class="rounded-[2rem] border border-white/10 bg-white/5 p-6 backdrop-blur-xl">
+				<div class="mb-4 flex items-center justify-between">
+					<h2 class="text-lg font-semibold text-white">Popular tags</h2>
+					<a href="/tags/" class="text-sm text-cyan-300 transition hover:text-cyan-200">View all</a>
+				</div>
+				<div class="flex flex-wrap gap-2">
+					{popularTags.map((tag) => (
+						<a href={`/tags/${tag.slug}/`} class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-slate-950/55 px-4 py-2 text-sm text-slate-200 transition hover:border-cyan-400/30 hover:bg-cyan-400/10 hover:text-cyan-200">
+							<span>#{tag.name}</span>
+							<span class="text-xs text-slate-400">{tag.count}</span>
+						</a>
+					))}
+				</div>
+			</section>
+
+			<section class="rounded-[2rem] border border-white/10 bg-white/5 p-6 backdrop-blur-xl">
+				<div class="mb-4 flex items-center justify-between">
+					<h2 class="text-lg font-semibold text-white">Trending now</h2>
+					<a href="/hot/" class="text-sm text-cyan-300 transition hover:text-cyan-200">View all</a>
+				</div>
+				<div class="space-y-3">
+					{trendingPosts.slice(0, 4).map((post) => (
+						<a href={`/posts/${post.slug}/`} class="group block rounded-2xl border border-white/10 bg-slate-950/60 p-4 transition hover:border-cyan-400/25 hover:bg-slate-950/80">
+							<div class="flex items-start gap-3">
+								<div class="h-14 w-14 shrink-0 overflow-hidden rounded-2xl bg-slate-900">
+									{post.data.cover_image ? (
+										<img src={post.data.cover_image} alt={post.data.title} loading="lazy" decoding="async" class="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+									) : (
+										<div class="grid h-full w-full place-items-center text-[10px] text-slate-500">Hot</div>
+									)}
+								</div>
+								<div class="min-w-0">
+									<h3 class="text-sm font-semibold text-white transition group-hover:text-cyan-300">{post.data.title}</h3>
+									<p class="mt-1 line-clamp-2 text-xs leading-5 text-slate-400">{excerptFromBody(post.body, 88)}</p>
+								</div>
+							</div>
+						</a>
+					))}
+				</div>
+			</section>
+
+			<section class="rounded-[2rem] border border-cyan-400/20 bg-gradient-to-br from-cyan-400/10 to-blue-500/5 p-6 backdrop-blur-xl">
+				<h2 class="text-lg font-semibold text-white">Shareable by design</h2>
+				<p class="mt-3 text-sm leading-6 text-slate-300">
+					Every article now includes social share buttons and topic archives, so readers can move from one story to the next without friction.
+				</p>
+			</section>
+		</aside>
+	</section>
 </Layout>
