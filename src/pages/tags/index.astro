@@ -1,10 +1,10 @@
 ---
 import { getCollection } from 'astro:content';
 import Layout from '../../layouts/Layout.astro';
-import { filterPublicPosts, getTagStats, deduplicateByBaseSlug, excerptFromBody, sortLatest, slugify } from '../../lib/content';
+import { filterPublicPosts, getTagStats, deduplicateByBaseSlugPreferLang, excerptFromBody, slugify } from '../../lib/content';
 
 const posts = filterPublicPosts(await getCollection('posts'));
-const uniquePosts = deduplicateByBaseSlug(sortLatest(posts));
+const uniquePosts = deduplicateByBaseSlugPreferLang(posts, 'en');
 const tags = getTagStats(posts);
 ---
 

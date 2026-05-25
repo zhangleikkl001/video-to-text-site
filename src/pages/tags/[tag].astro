@@ -1,7 +1,7 @@
 ---
 import { getCollection } from 'astro:content';
 import Layout from '../../layouts/Layout.astro';
-import { filterPublicPosts, deduplicateByBaseSlug, filterPostsByTag, getTagStats, excerptFromBody, slugify, sortLatest } from '../../lib/content';
+import { filterPublicPosts, deduplicateByBaseSlugPreferLang, filterPostsByTag, getTagStats, excerptFromBody, slugify, getLocalizedPostEntry, resolvePostThumbnail } from '../../lib/content';
 
 export async function getStaticPaths() {
 	const posts = filterPublicPosts(await getCollection('posts'));
@@ -13,10 +13,10 @@ export async function getStaticPaths() {
 
 const { tag } = Astro.props;
 const posts = filterPublicPosts(await getCollection('posts'));
-const uniquePosts = deduplicateByBaseSlug(sortLatest(posts));
+const uniquePosts = deduplicateByBaseSlugPreferLang(posts, 'en');
 const tagPosts = uniquePosts.filter((post) => (post.data.tags || []).includes(tag.name));
 const tagCount = tagPosts.length;
-const highlightPosts = filterPostsByTag(posts, tag.name).slice(0, 3);
+const highlightPosts = filterPostsByTag(posts, tag.name).map((post) => getLocalizedPostEntry(posts, post.slug, 'en') || post).slice(0, 3);
 ---
 
 <Layout title={`#${tag.name} - GlobalFeed`} description={`Browse GlobalFeed articles tagged ${tag.name}.`} lang="en">
@@ -29,32 +29,35 @@ const highlightPosts = filterPostsByTag(posts, tag.name).slice(0, 3);
 
 		<div class="grid gap-6 lg:grid-cols-[1.4fr_0.9fr]">
 			<div class="space-y-4">
-				{tagPosts.map((post) => (
-					<article class="rounded-[2rem] border border-white/10 bg-white/5 p-5 shadow-2xl shadow-black/20 backdrop-blur-xl transition hover:border-cyan-400/25 hover:bg-white/10">
-						<a href={`/posts/${post.slug}/`} class="grid gap-4 md:grid-cols-[220px_1fr] md:items-center">
-							<div class="overflow-hidden rounded-2xl bg-slate-900 aspect-[16/10] md:aspect-auto md:h-32">
-								{post.data.cover_image ? (
-									<img src={post.data.cover_image} alt={post.data.title} loading="lazy" decoding="async" class="h-full w-full object-cover transition duration-500 hover:scale-105" />
-								) : (
-									<div class="grid h-full w-full place-items-center text-xs text-slate-500">No cover</div>
-								)}
-							</div>
-							<div class="space-y-3">
-								<div class="flex flex-wrap items-center gap-2 text-xs text-slate-400">
-									<span class="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2.5 py-1 text-cyan-200">#{tag.name}</span>
-									<span>{new Date(post.data.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+				{tagPosts.map((post) => {
+					const thumb = resolvePostThumbnail(post);
+					return (
+						<article class="rounded-[2rem] border border-white/10 bg-white/5 p-5 shadow-2xl shadow-black/20 backdrop-blur-xl transition hover:border-cyan-400/25 hover:bg-white/10">
+							<a href={`/posts/${post.slug}/`} class="grid gap-4 md:grid-cols-[220px_1fr] md:items-center">
+								<div class="overflow-hidden rounded-2xl bg-slate-900 aspect-[16/10] md:aspect-auto md:h-32">
+									{thumb ? (
+										<img src={thumb} alt={post.data.title} loading="lazy" decoding="async" class="h-full w-full object-cover transition duration-500 hover:scale-105" />
+									) : (
+										<div class="grid h-full w-full place-items-center text-xs text-slate-500">No cover</div>
+									)}
 								</div>
-								<h2 class="text-2xl font-bold text-white transition hover:text-cyan-300">{post.data.title}</h2>
-								<p class="text-sm leading-7 text-slate-400">{excerptFromBody(post.body, 180)}</p>
-								<div class="flex flex-wrap gap-2 pt-1">
-									{post.data.tags.slice(0, 5).map((oneTag) => (
-										<a href={`/tags/${slugify(oneTag)}/`} class="rounded-full border border-white/10 bg-slate-950/60 px-3 py-1 text-xs text-slate-300 transition hover:border-cyan-400/30 hover:bg-cyan-400/10 hover:text-cyan-200">#{oneTag}</a>
-									))}
+								<div class="space-y-3">
+									<div class="flex flex-wrap items-center gap-2 text-xs text-slate-400">
+										<span class="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2.5 py-1 text-cyan-200">#{tag.name}</span>
+										<span>{new Date(post.data.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+									</div>
+									<h2 class="text-2xl font-bold text-white transition hover:text-cyan-300">{post.data.title}</h2>
+									<p class="text-sm leading-7 text-slate-400">{excerptFromBody(post.body, 180)}</p>
+									<div class="flex flex-wrap gap-2 pt-1">
+										{post.data.tags.slice(0, 5).map((oneTag) => (
+											<a href={`/tags/${slugify(oneTag)}/`} class="rounded-full border border-white/10 bg-slate-950/60 px-3 py-1 text-xs text-slate-300 transition hover:border-cyan-400/30 hover:bg-cyan-400/10 hover:text-cyan-200">#{oneTag}</a>
+										))}
+									</div>
 								</div>
-							</div>
-						</a>
-					</article>
-				))}
+							</a>
+						</article>
+					);
+				})}
 			</div>
 
 			<aside class="space-y-6 lg:sticky lg:top-24 lg:self-start">

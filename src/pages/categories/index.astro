@@ -1,10 +1,10 @@
 ---
 import { getCollection } from 'astro:content';
 import Layout from '../../layouts/Layout.astro';
-import { filterPublicPosts, getCategoryStats, deduplicateByBaseSlug, excerptFromBody, sortLatest, slugify } from '../../lib/content';
+import { filterPublicPosts, getCategoryStats, deduplicateByBaseSlugPreferLang, excerptFromBody, resolvePostThumbnail, slugify } from '../../lib/content';
 
 const posts = filterPublicPosts(await getCollection('posts'));
-const uniquePosts = deduplicateByBaseSlug(sortLatest(posts));
+const uniquePosts = deduplicateByBaseSlugPreferLang(posts, 'en');
 const categories = getCategoryStats(posts);
 ---
 
@@ -30,23 +30,26 @@ const categories = getCategoryStats(posts);
 						</div>
 
 						<div class="mt-5 space-y-3">
-							{categoryPosts.map((post) => (
-								<a href={`/posts/${post.slug}/`} class="group block rounded-2xl border border-white/10 bg-slate-950/60 p-4 transition hover:border-cyan-400/25 hover:bg-slate-950/80">
-									<div class="flex items-center gap-3">
-										<div class="h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-slate-900">
-											{post.data.cover_image ? (
-												<img src={post.data.cover_image} alt={post.data.title} loading="lazy" decoding="async" class="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
-											) : (
-												<div class="grid h-full w-full place-items-center text-xs text-slate-500">No cover</div>
-											)}
-										</div>
-										<div class="min-w-0">
-											<h3 class="truncate text-sm font-semibold text-white transition group-hover:text-cyan-300">{post.data.title}</h3>
-											<p class="mt-1 line-clamp-2 text-xs leading-5 text-slate-400">{excerptFromBody(post.body, 90)}</p>
-										</div>
-									</div>
-								</a>
-							))}
+			{categoryPosts.map((post) => {
+				const thumb = resolvePostThumbnail(post);
+				return (
+					<a href={`/posts/${post.slug}/`} class="group block rounded-2xl border border-white/10 bg-slate-950/60 p-4 transition hover:border-cyan-400/25 hover:bg-slate-950/80">
+						<div class="flex items-center gap-3">
+							<div class="h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-slate-900">
+								{thumb ? (
+									<img src={thumb} alt={post.data.title} loading="lazy" decoding="async" class="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+								) : (
+									<div class="grid h-full w-full place-items-center text-xs text-slate-500">No cover</div>
+								)}
+							</div>
+							<div class="min-w-0">
+								<h3 class="truncate text-sm font-semibold text-white transition group-hover:text-cyan-300">{post.data.title}</h3>
+								<p class="mt-1 line-clamp-2 text-xs leading-5 text-slate-400">{excerptFromBody(post.body, 90)}</p>
+							</div>
+						</div>
+					</a>
+				);
+			})}
 						</div>
 					</section>
 				);

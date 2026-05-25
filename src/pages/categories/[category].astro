@@ -1,7 +1,7 @@
 ---
 import { getCollection } from 'astro:content';
 import Layout from '../../layouts/Layout.astro';
-import { filterPublicPosts, deduplicateByBaseSlug, filterPostsByCategory, getCategoryStats, excerptFromBody, slugify, sortLatest } from '../../lib/content';
+import { filterPublicPosts, deduplicateByBaseSlugPreferLang, filterPostsByCategory, getCategoryStats, excerptFromBody, resolvePostThumbnail, slugify, getLocalizedPostEntry } from '../../lib/content';
 
 export async function getStaticPaths() {
 	const posts = filterPublicPosts(await getCollection('posts'));
@@ -13,10 +13,10 @@ export async function getStaticPaths() {
 
 const { category } = Astro.props;
 const posts = filterPublicPosts(await getCollection('posts'));
-const uniquePosts = deduplicateByBaseSlug(sortLatest(posts));
+const uniquePosts = deduplicateByBaseSlugPreferLang(posts, 'en');
 const categoryPosts = uniquePosts.filter((post) => slugify(post.data.category) === category.slug);
 const categoryCount = categoryPosts.length;
-const highlightPosts = filterPostsByCategory(posts, category.name).slice(0, 3);
+const highlightPosts = filterPostsByCategory(posts, category.name).map((post) => getLocalizedPostEntry(posts, post.slug, 'en') || post).slice(0, 3);
 ---
 
 <Layout title={`${category.name} - GlobalFeed`} description={`Browse ${category.name} stories on GlobalFeed.`} lang="en">
@@ -29,12 +29,14 @@ const highlightPosts = filterPostsByCategory(posts, category.name).slice(0, 3);
 
 		<div class="grid gap-6 lg:grid-cols-[1.4fr_0.9fr]">
 			<div class="space-y-4">
-				{categoryPosts.map((post) => (
+			{categoryPosts.map((post) => {
+				const thumb = resolvePostThumbnail(post);
+				return (
 					<article class="rounded-[2rem] border border-white/10 bg-white/5 p-5 shadow-2xl shadow-black/20 backdrop-blur-xl transition hover:border-cyan-400/25 hover:bg-white/10">
 						<a href={`/posts/${post.slug}/`} class="grid gap-4 md:grid-cols-[220px_1fr] md:items-center">
 							<div class="overflow-hidden rounded-2xl bg-slate-900 aspect-[16/10] md:aspect-auto md:h-32">
-								{post.data.cover_image ? (
-									<img src={post.data.cover_image} alt={post.data.title} loading="lazy" decoding="async" class="h-full w-full object-cover transition duration-500 hover:scale-105" />
+								{thumb ? (
+									<img src={thumb} alt={post.data.title} loading="lazy" decoding="async" class="h-full w-full object-cover transition duration-500 hover:scale-105" />
 								) : (
 									<div class="grid h-full w-full place-items-center text-xs text-slate-500">No cover</div>
 								)}
@@ -54,7 +56,8 @@ const highlightPosts = filterPostsByCategory(posts, category.name).slice(0, 3);
 							</div>
 						</a>
 					</article>
-				))}
+				);
+			})}
 			</div>
 
 			<aside class="space-y-6 lg:sticky lg:top-24 lg:self-start">

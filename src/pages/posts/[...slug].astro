@@ -10,8 +10,10 @@ import {
 	getBaseSlug,
 	getShareLinks,
 	getCategoryStats,
+	getLocalizedPostSlug,
 	slugify,
 	sortLatest,
+	resolvePostThumbnail,
 } from '../../lib/content';
 
 export async function getStaticPaths() {
@@ -36,9 +38,11 @@ const translations = allPosts.filter((p) => {
 });
 
 const currentLang = Object.keys(LANG_NAMES).find((l) => entry.slug.endsWith(`-${l}`)) || 'zh';
+const localizedPostSlug = (slug: string) => getLocalizedPostSlug(allPosts, slug, currentLang);
 const publishDate = entry.data.date ? new Date(entry.data.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : '';
 const canonicalUrl = buildAbsolutePostUrl(entry.slug);
 const shareLinks = getShareLinks(canonicalUrl, entry.data.title);
+const thumbnail = resolvePostThumbnail(entry);
 const popularCategories = getCategoryStats(allPosts).slice(0, 6);
 const primaryTag = entry.data.tags?.[0] || null;
 const tagSeriesPosts = primaryTag
@@ -62,7 +66,7 @@ const newerPost = currentIndex > 0 ? uniquePosts[currentIndex - 1] : null;
 const olderPost = currentIndex >= 0 && currentIndex < uniquePosts.length - 1 ? uniquePosts[currentIndex + 1] : null;
 ---
 
-<Layout title={`${entry.data.title} - GlobalFeed`} description={entry.data.title} lang={currentLang} canonical={canonicalUrl} alternates={[{ lang: currentLang, href: canonicalUrl }, ...translations.map((t) => ({ lang: Object.keys(LANG_NAMES).find((l) => t.slug.endsWith(`-${l}`)) || 'zh', href: buildAbsolutePostUrl(t.slug) }))]} ogImage={entry.data.cover_image || undefined} ogType="article">
+<Layout title={`${entry.data.title} - GlobalFeed`} description={entry.data.title} lang={currentLang} canonical={canonicalUrl} alternates={[{ lang: currentLang, href: canonicalUrl }, ...translations.map((t) => ({ lang: Object.keys(LANG_NAMES).find((l) => t.slug.endsWith(`-${l}`)) || 'zh', href: buildAbsolutePostUrl(t.slug) }))]} ogImage={thumbnail || undefined} ogType="article">
 	<article class="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
 		<div class="mb-8 flex flex-wrap items-center justify-center gap-2 text-sm">
 			{translations.length > 0 && (
@@ -101,11 +105,11 @@ const olderPost = currentIndex >= 0 && currentIndex < uniquePosts.length - 1 ? u
 			</div>
 		</header>
 
-		{entry.data.cover_image && entry.data.cover_image !== '' && (
+		{thumbnail ? (
 			<div class="mt-8 overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl shadow-black/20">
-				<img src={entry.data.cover_image} alt={entry.data.title} loading="eager" fetchpriority="high" decoding="async" class="w-full object-cover" />
+				<img src={thumbnail} alt={entry.data.title} loading="eager" fetchpriority="high" decoding="async" class="w-full object-cover" />
 			</div>
-		)}
+		) : null}
 
 		<div class="mt-8 rounded-[2rem] border border-white/10 bg-white/5 p-6 shadow-2xl shadow-black/20 backdrop-blur-xl sm:p-8">
 			<div class="prose prose-invert max-w-none prose-lg prose-headings:text-white prose-p:text-slate-300 prose-a:text-cyan-300 prose-strong:text-white prose-img:rounded-2xl prose-img:border prose-img:border-white/10">
@@ -136,25 +140,28 @@ const olderPost = currentIndex >= 0 && currentIndex < uniquePosts.length - 1 ? u
 
 			{primaryTag && tagSeriesPosts.length > 0 ? (
 				<div class="mt-6 grid gap-4 md:grid-cols-3">
-					{tagSeriesPosts.map((post) => (
-						<a href={`/posts/${post.slug}/`} class="group overflow-hidden rounded-3xl border border-white/10 bg-slate-950/70 transition hover:-translate-y-1 hover:border-cyan-400/30">
-							<div class="aspect-[4/3] overflow-hidden bg-slate-900">
-								{post.data.cover_image ? (
-									<img src={post.data.cover_image} alt={post.data.title} loading="lazy" decoding="async" class="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
-								) : (
-									<div class="flex h-full items-center justify-center text-sm text-slate-500">No cover</div>
-								)}
-							</div>
-							<div class="space-y-3 p-4">
-								<div class="flex items-center gap-2 text-xs text-slate-400">
-									<span>#{primaryTag}</span>
-									<span class="h-1 w-1 rounded-full bg-slate-600"></span>
-									<span>{new Date(post.data.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-								</div>
-								<h3 class="text-base font-semibold leading-snug text-white transition group-hover:text-cyan-300">{post.data.title}</h3>
-							</div>
-						</a>
-					))}
+						{tagSeriesPosts.map((post) => {
+							const thumb = resolvePostThumbnail(post);
+							return (
+								<a href={`/posts/${localizedPostSlug(post.slug)}/`} class="group overflow-hidden rounded-3xl border border-white/10 bg-slate-950/70 transition hover:-translate-y-1 hover:border-cyan-400/30">
+									<div class="aspect-[4/3] overflow-hidden bg-slate-900">
+										{thumb ? (
+											<img src={thumb} alt={post.data.title} loading="lazy" decoding="async" class="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+										) : (
+											<div class="flex h-full items-center justify-center text-sm text-slate-500">No cover</div>
+										)}
+									</div>
+									<div class="space-y-3 p-4">
+										<div class="flex items-center gap-2 text-xs text-slate-400">
+											<span>#{primaryTag}</span>
+											<span class="h-1 w-1 rounded-full bg-slate-600"></span>
+											<span>{new Date(post.data.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+										</div>
+										<h3 class="text-base font-semibold leading-snug text-white transition group-hover:text-cyan-300">{post.data.title}</h3>
+									</div>
+								</a>
+							);
+						})}
 				</div>
 			) : (
 				<p class="mt-4 text-sm text-slate-500">No other posts found with this tag yet.</p>
@@ -186,7 +193,7 @@ const olderPost = currentIndex >= 0 && currentIndex < uniquePosts.length - 1 ? u
 		{newerPost || olderPost ? (
 			<section class="mt-10 grid gap-4 md:grid-cols-2">
 				{newerPost ? (
-					<a href={`/posts/${newerPost.slug}/`} class="group rounded-[2rem] border border-white/10 bg-white/5 p-5 backdrop-blur-xl transition hover:border-cyan-400/25 hover:bg-white/10">
+					<a href={`/posts/${localizedPostSlug(newerPost.slug)}/`} class="group rounded-[2rem] border border-white/10 bg-white/5 p-5 backdrop-blur-xl transition hover:border-cyan-400/25 hover:bg-white/10">
 						<div class="text-xs uppercase tracking-[0.25em] text-cyan-300">Newer</div>
 						<h2 class="mt-2 text-lg font-semibold text-white transition group-hover:text-cyan-300">{newerPost.data.title}</h2>
 						<p class="mt-2 text-sm text-slate-400">Jump to the more recent article in this topic series.</p>
@@ -196,7 +203,7 @@ const olderPost = currentIndex >= 0 && currentIndex < uniquePosts.length - 1 ? u
 				)}
 
 				{olderPost ? (
-					<a href={`/posts/${olderPost.slug}/`} class="group rounded-[2rem] border border-white/10 bg-white/5 p-5 backdrop-blur-xl transition hover:border-cyan-400/25 hover:bg-white/10 md:text-right">
+					<a href={`/posts/${localizedPostSlug(olderPost.slug)}/`} class="group rounded-[2rem] border border-white/10 bg-white/5 p-5 backdrop-blur-xl transition hover:border-cyan-400/25 hover:bg-white/10 md:text-right">
 						<div class="text-xs uppercase tracking-[0.25em] text-cyan-300">Older</div>
 						<h2 class="mt-2 text-lg font-semibold text-white transition group-hover:text-cyan-300">{olderPost.data.title}</h2>
 						<p class="mt-2 text-sm text-slate-400">Continue to the previous article in this series.</p>
@@ -218,25 +225,28 @@ const olderPost = currentIndex >= 0 && currentIndex < uniquePosts.length - 1 ? u
 				</div>
 
 				<div class="grid gap-4 md:grid-cols-3">
-					{relatedPosts.map((post) => (
-						<a href={`/posts/${post.slug}/`} class="group overflow-hidden rounded-3xl border border-white/10 bg-slate-950/70 transition hover:-translate-y-1 hover:border-cyan-400/30">
-							<div class="aspect-[4/3] overflow-hidden bg-slate-900">
-								{post.data.cover_image ? (
-									<img src={post.data.cover_image} alt={post.data.title} loading="lazy" decoding="async" class="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
-								) : (
-									<div class="flex h-full items-center justify-center text-sm text-slate-500">No cover</div>
-								)}
-							</div>
-							<div class="space-y-3 p-4">
-								<div class="flex items-center gap-2 text-xs text-slate-400">
-									<span>{post.data.category}</span>
-									<span class="h-1 w-1 rounded-full bg-slate-600"></span>
-									<span>{new Date(post.data.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+					{relatedPosts.map((post) => {
+						const thumb = resolvePostThumbnail(post);
+						return (
+							<a href={`/posts/${localizedPostSlug(post.slug)}/`} class="group overflow-hidden rounded-3xl border border-white/10 bg-slate-950/70 transition hover:-translate-y-1 hover:border-cyan-400/30">
+								<div class="aspect-[4/3] overflow-hidden bg-slate-900">
+									{thumb ? (
+										<img src={thumb} alt={post.data.title} loading="lazy" decoding="async" class="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+									) : (
+										<div class="flex h-full items-center justify-center text-sm text-slate-500">No cover</div>
+									)}
 								</div>
-								<h3 class="text-base font-semibold leading-snug text-white transition group-hover:text-cyan-300">{post.data.title}</h3>
-							</div>
-						</a>
-					))}
+								<div class="space-y-3 p-4">
+									<div class="flex items-center gap-2 text-xs text-slate-400">
+										<span>{post.data.category}</span>
+										<span class="h-1 w-1 rounded-full bg-slate-600"></span>
+										<span>{new Date(post.data.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+									</div>
+									<h3 class="text-base font-semibold leading-snug text-white transition group-hover:text-cyan-300">{post.data.title}</h3>
+								</div>
+							</a>
+						);
+					})}
 				</div>
 			</section>
 		)}

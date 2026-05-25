@@ -3,24 +3,24 @@ import Layout from '../layouts/Layout.astro';
 import { getCollection } from 'astro:content';
 import {
 	filterPublicPosts,
-	deduplicateByBaseSlug,
+	deduplicateByBaseSlugPreferLang,
 	excerptFromBody,
 	getCategoryStats,
 	getLangFromSlug,
+	getLocalizedPostEntry,
 	getTagStats,
 	getTrendingPosts,
-	sortLatest,
+	resolvePostThumbnail,
 	slugify,
 } from '../lib/content';
 
 const posts = filterPublicPosts(await getCollection('posts'));
-const sortedPosts = sortLatest(posts);
-const displayPosts = deduplicateByBaseSlug(sortedPosts);
+const displayPosts = deduplicateByBaseSlugPreferLang(posts, 'en');
 const featuredPosts = displayPosts.slice(0, 3);
 const recentPosts = displayPosts.slice(0, 8);
 const categoryStats = getCategoryStats(posts).slice(0, 8);
 const popularTags = getTagStats(posts).slice(0, 14);
-const trendingPosts = getTrendingPosts(posts, 6);
+const trendingPosts = getTrendingPosts(posts, 6).map((post) => getLocalizedPostEntry(posts, post.slug, 'en') || post);
 
 const totalArticles = displayPosts.length;
 const totalCategories = categoryStats.length;
@@ -87,12 +87,13 @@ const LANG_BADGES = { en: 'EN', es: 'ES', fr: 'FR', de: 'DE', ja: 'JA' };
 					{featuredPosts.map((post) => {
 						const lang = getLangFromSlug(post.slug);
 						const categorySlug = slugify(post.data.category);
+						const thumb = resolvePostThumbnail(post);
 						return (
 							<article class="group overflow-hidden rounded-3xl border border-white/10 bg-slate-950/70 transition hover:-translate-y-1 hover:border-cyan-400/30">
 								<a href={`/posts/${post.slug}/`} class="block h-full">
 									<div class="relative aspect-[4/3] overflow-hidden bg-slate-900">
-										{post.data.cover_image ? (
-											<img src={post.data.cover_image} alt={post.data.title} loading="lazy" decoding="async" class="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+										{thumb ? (
+											<img src={thumb} alt={post.data.title} loading="lazy" decoding="async" class="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
 										) : (
 											<div class="flex h-full items-end bg-[linear-gradient(180deg,rgba(15,23,42,0.25)_0%,rgba(8,15,40,0.88)_100%)] p-5">
 												<div class="text-sm font-medium text-slate-200">No cover image</div>
@@ -139,12 +140,13 @@ const LANG_BADGES = { en: 'EN', es: 'ES', fr: 'FR', de: 'DE', ja: 'JA' };
 					{recentPosts.map((post) => {
 						const lang = getLangFromSlug(post.slug);
 						const categorySlug = slugify(post.data.category);
+						const thumb = resolvePostThumbnail(post);
 						return (
 							<article class="group rounded-3xl border border-white/10 bg-slate-950/55 p-4 transition hover:border-cyan-400/25 hover:bg-slate-950/80">
 								<a href={`/posts/${post.slug}/`} class="grid gap-4 md:grid-cols-[180px_1fr] md:items-center">
 									<div class="overflow-hidden rounded-2xl bg-slate-900 aspect-[16/10] md:aspect-auto md:h-28">
-										{post.data.cover_image ? (
-											<img src={post.data.cover_image} alt={post.data.title} loading="lazy" decoding="async" class="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+										{thumb ? (
+											<img src={thumb} alt={post.data.title} loading="lazy" decoding="async" class="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
 										) : (
 											<div class="flex h-full items-center justify-center text-xs text-slate-500">No cover</div>
 										)}
@@ -210,23 +212,26 @@ const LANG_BADGES = { en: 'EN', es: 'ES', fr: 'FR', de: 'DE', ja: 'JA' };
 					<a href="/hot/" class="text-sm text-cyan-300 transition hover:text-cyan-200">View all</a>
 				</div>
 				<div class="space-y-3">
-					{trendingPosts.slice(0, 4).map((post) => (
-						<a href={`/posts/${post.slug}/`} class="group block rounded-2xl border border-white/10 bg-slate-950/60 p-4 transition hover:border-cyan-400/25 hover:bg-slate-950/80">
-							<div class="flex items-start gap-3">
-								<div class="h-14 w-14 shrink-0 overflow-hidden rounded-2xl bg-slate-900">
-									{post.data.cover_image ? (
-										<img src={post.data.cover_image} alt={post.data.title} loading="lazy" decoding="async" class="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
-									) : (
-										<div class="grid h-full w-full place-items-center text-[10px] text-slate-500">Hot</div>
-									)}
+					{trendingPosts.slice(0, 4).map((post) => {
+						const thumb = resolvePostThumbnail(post);
+						return (
+							<a href={`/posts/${post.slug}/`} class="group block rounded-2xl border border-white/10 bg-slate-950/60 p-4 transition hover:border-cyan-400/25 hover:bg-slate-950/80">
+								<div class="flex items-start gap-3">
+									<div class="h-14 w-14 shrink-0 overflow-hidden rounded-2xl bg-slate-900">
+										{thumb ? (
+											<img src={thumb} alt={post.data.title} loading="lazy" decoding="async" class="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+										) : (
+											<div class="grid h-full w-full place-items-center text-[10px] text-slate-500">Hot</div>
+										)}
+									</div>
+									<div class="min-w-0">
+										<h3 class="text-sm font-semibold text-white transition group-hover:text-cyan-300">{post.data.title}</h3>
+										<p class="mt-1 line-clamp-2 text-xs leading-5 text-slate-400">{excerptFromBody(post.body, 88)}</p>
+									</div>
 								</div>
-								<div class="min-w-0">
-									<h3 class="text-sm font-semibold text-white transition group-hover:text-cyan-300">{post.data.title}</h3>
-									<p class="mt-1 line-clamp-2 text-xs leading-5 text-slate-400">{excerptFromBody(post.body, 88)}</p>
-								</div>
-							</div>
-						</a>
-					))}
+							</a>
+						);
+					})}
 				</div>
 			</section>
 
