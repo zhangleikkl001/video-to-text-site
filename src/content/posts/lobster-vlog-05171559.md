@@ -3,7 +3,7 @@ title: "Free Lobster Feast? Catching Giant Australian Lobsters in New Zealand"
 date: 2026-05-17
 category: "Lifestyle"
 tags: ["AI", "Automated"]
-cover_image: "/images/posts/placeholder.jpg"
+cover_image: "/images/posts/lobster-vlog-05171559/cover_0.webp"
 original_video_url: "https://www.douyin.com/jingxuan?modal_id=762366103035968472"
 ---
 

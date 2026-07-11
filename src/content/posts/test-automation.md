@@ -3,7 +3,7 @@ title: "The Future of Automation"
 date: 2026-05-17
 category: "General"
 tags: ["Tech", "Automated"]
-cover_image: "https://images.unsplash.com/photo-1518770660439-4636190af475"
+cover_image: "/images/posts/test-automation/legacy_0.webp"
 original_video_url: "https://example.com"
 ---
 

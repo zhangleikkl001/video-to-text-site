@@ -4,12 +4,22 @@ import { join } from 'node:path';
 
 export const PUBLIC_SITE_URL = 'https://lifeofcity.com';
 export const LANG_SUFFIXES = ['-en', '-es', '-fr', '-de', '-ja'] as const;
+export const LANG_CODES = ['en', 'es', 'fr', 'de', 'ja'] as const;
+export const DEFAULT_LANG = 'en';
+const LANGUAGE_CATEGORY_SLUGS = new Set([...LANG_CODES, 'zh']);
+const CATEGORY_FALLBACKS = ['Travel', 'Culture', 'Food', 'Business', 'Tech', 'Nature', 'Lifestyle', 'History', 'Art', 'Urban', 'News'];
 
 export function getLangFromSlug(slug: string) {
 	for (const suffix of LANG_SUFFIXES) {
 		if (slug.endsWith(suffix)) return suffix.slice(1);
 	}
 	return 'zh';
+}
+
+export function resolveAbsoluteUrl(url?: string) {
+	if (!url) return '';
+	if (/^https?:\/\//i.test(url)) return url;
+	return new URL(url.startsWith('/') ? url : `/${url}`, PUBLIC_SITE_URL).toString();
 }
 
 export function isPublicTranslatedPost(slug: string) {
@@ -30,6 +40,23 @@ export function getLocalizedPostEntry(posts: CollectionEntry<'posts'>[], slug: s
 
 export function getLocalizedPostUrl(posts: CollectionEntry<'posts'>[], slug: string, lang: string) {
 	return buildAbsolutePostUrl(getLocalizedPostSlug(posts, slug, lang));
+}
+
+export function getLanguageAlternates(posts: CollectionEntry<'posts'>[], slug: string) {
+	const baseSlug = getBaseSlug(slug);
+	const sameBasePosts = posts
+		.filter((post) => getBaseSlug(post.slug) === baseSlug)
+		.sort((a, b) => LANG_CODES.indexOf(getLangFromSlug(a.slug) as typeof LANG_CODES[number]) - LANG_CODES.indexOf(getLangFromSlug(b.slug) as typeof LANG_CODES[number]));
+
+	const alternates = sameBasePosts.map((post) => ({
+		lang: getLangFromSlug(post.slug),
+		href: buildAbsolutePostUrl(post.slug),
+	}));
+
+	const defaultPost = sameBasePosts.find((post) => getLangFromSlug(post.slug) === DEFAULT_LANG) || sameBasePosts[0];
+	return defaultPost
+		? [...alternates, { lang: 'x-default', href: buildAbsolutePostUrl(defaultPost.slug) }]
+		: alternates;
 }
 
 export function deduplicateByBaseSlugPreferLang(posts: CollectionEntry<'posts'>[], preferredLang = 'en') {
@@ -89,6 +116,20 @@ export function excerptFromBody(body?: string, maxLength = 160) {
 
 	if (cleaned.length <= maxLength) return cleaned;
 	return `${cleaned.slice(0, maxLength).trimEnd()}…`;
+}
+
+export function getPostDescription(post: CollectionEntry<'posts'>, maxLength = 160) {
+	return post.data.description?.trim() || excerptFromBody(post.body, maxLength) || post.data.title;
+}
+
+export function getPostCategory(post: CollectionEntry<'posts'>) {
+	const rawCategory = post.data.category?.trim();
+	const rawCategorySlug = slugify(rawCategory || '');
+	if (rawCategory && !LANGUAGE_CATEGORY_SLUGS.has(rawCategorySlug)) return rawCategory;
+
+	const tags = (post.data.tags || []).map((tag) => tag.trim()).filter(Boolean);
+	const fallback = CATEGORY_FALLBACKS.find((category) => tags.some((tag) => slugify(tag) === slugify(category)));
+	return fallback || tags[0] || 'News';
 }
 
 export function normalizeSearchText(value: string) {
@@ -273,15 +314,20 @@ export function resolvePostThumbnail(post: CollectionEntry<'posts'>) {
 }
 
 export function getCategoryStats(posts: CollectionEntry<'posts'>[]) {
-	const counts = new Map<string, number>();
-	for (const post of deduplicateByBaseSlug(sortLatest(posts))) {
-		const category = post.data.category?.trim() || 'Uncategorized';
-		counts.set(category, (counts.get(category) || 0) + 1);
+	const counts = new Map<string, { name: string; count: number }>();
+	for (const post of sortLatest(posts)) {
+		const category = getPostCategory(post);
+		const categorySlug = slugify(category);
+		const existing = counts.get(categorySlug);
+		counts.set(categorySlug, {
+			name: existing?.name || category,
+			count: (existing?.count || 0) + 1,
+		});
 	}
 
-	return [...counts.entries()]
-		.sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-		.map(([name, count]) => ({
+	return [...counts.values()]
+		.sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+		.map(({ name, count }) => ({
 			name,
 			slug: slugify(name),
 			count,
@@ -289,18 +335,23 @@ export function getCategoryStats(posts: CollectionEntry<'posts'>[]) {
 }
 
 export function getTagStats(posts: CollectionEntry<'posts'>[]) {
-	const counts = new Map<string, number>();
-	for (const post of deduplicateByBaseSlug(sortLatest(posts))) {
+	const counts = new Map<string, { name: string; count: number }>();
+	for (const post of sortLatest(posts)) {
 		for (const tag of post.data.tags || []) {
 			const normalized = tag.trim();
 			if (!normalized) continue;
-			counts.set(normalized, (counts.get(normalized) || 0) + 1);
+			const tagSlug = slugify(normalized);
+			const existing = counts.get(tagSlug);
+			counts.set(tagSlug, {
+				name: existing?.name || normalized,
+				count: (existing?.count || 0) + 1,
+			});
 		}
 	}
 
-	return [...counts.entries()]
-		.sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-		.map(([name, count]) => ({
+	return [...counts.values()]
+		.sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+		.map(({ name, count }) => ({
 			name,
 			slug: slugify(name),
 			count,
@@ -308,11 +359,13 @@ export function getTagStats(posts: CollectionEntry<'posts'>[]) {
 }
 
 export function filterPostsByCategory(posts: CollectionEntry<'posts'>[], category: string) {
-	return deduplicateByBaseSlug(sortLatest(posts)).filter((post) => post.data.category === category);
+	const categorySlug = slugify(category);
+	return deduplicateByBaseSlug(sortLatest(posts)).filter((post) => slugify(getPostCategory(post)) === categorySlug);
 }
 
 export function filterPostsByTag(posts: CollectionEntry<'posts'>[], tag: string) {
-	return deduplicateByBaseSlug(sortLatest(posts)).filter((post) => (post.data.tags || []).includes(tag));
+	const tagSlug = slugify(tag);
+	return deduplicateByBaseSlug(sortLatest(posts)).filter((post) => (post.data.tags || []).some((postTag) => slugify(postTag) === tagSlug));
 }
 
 export function getTrendingPosts(posts: CollectionEntry<'posts'>[], limit = 6) {
@@ -338,7 +391,7 @@ export function buildSearchIndex(posts: CollectionEntry<'posts'>[]) {
 		title: post.data.title,
 		slug: post.slug,
 		url: buildAbsolutePostUrl(post.slug),
-		category: post.data.category,
+		category: getPostCategory(post),
 		tags: post.data.tags || [],
 		lang: getLangFromSlug(post.slug),
 		date: post.data.date.toISOString(),
@@ -346,7 +399,7 @@ export function buildSearchIndex(posts: CollectionEntry<'posts'>[]) {
 		coverImage: resolvePostThumbnail(post),
 		searchText: normalizeSearchText([
 			post.data.title,
-			post.data.category,
+			getPostCategory(post),
 			...(post.data.tags || []),
 			excerptFromBody(post.body, 600),
 		].join(' ')),

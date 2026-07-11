@@ -1,7 +1,7 @@
 ---
 import { getCollection } from 'astro:content';
 import Layout from '../../layouts/Layout.astro';
-import { filterPublicPosts, deduplicateByBaseSlugPreferLang, filterPostsByCategory, getCategoryStats, excerptFromBody, resolvePostThumbnail, slugify, getLocalizedPostEntry } from '../../lib/content';
+import { filterPublicPosts, deduplicateByBaseSlugPreferLang, filterPostsByCategory, getCategoryStats, excerptFromBody, resolvePostThumbnail, slugify, getLocalizedPostEntry, getPostCategory } from '../../lib/content';
 
 export async function getStaticPaths() {
 	const posts = filterPublicPosts(await getCollection('posts'));
@@ -14,7 +14,7 @@ export async function getStaticPaths() {
 const { category } = Astro.props;
 const posts = filterPublicPosts(await getCollection('posts'));
 const uniquePosts = deduplicateByBaseSlugPreferLang(posts, 'en');
-const categoryPosts = uniquePosts.filter((post) => slugify(post.data.category) === category.slug);
+const categoryPosts = uniquePosts.filter((post) => slugify(getPostCategory(post)) === category.slug);
 const categoryCount = categoryPosts.length;
 const highlightPosts = filterPostsByCategory(posts, category.name).map((post) => getLocalizedPostEntry(posts, post.slug, 'en') || post).slice(0, 3);
 ---
@@ -43,7 +43,7 @@ const highlightPosts = filterPostsByCategory(posts, category.name).map((post) =>
 							</div>
 							<div class="space-y-3">
 								<div class="flex flex-wrap items-center gap-2 text-xs text-slate-400">
-									<span class="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2.5 py-1 text-cyan-200">{post.data.category}</span>
+									<span class="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2.5 py-1 text-cyan-200">{getPostCategory(post)}</span>
 									<span>{new Date(post.data.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
 								</div>
 								<h2 class="text-2xl font-bold text-white transition hover:text-cyan-300">{post.data.title}</h2>

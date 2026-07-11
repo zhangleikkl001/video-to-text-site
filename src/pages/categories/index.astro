@@ -1,7 +1,7 @@
 ---
 import { getCollection } from 'astro:content';
 import Layout from '../../layouts/Layout.astro';
-import { filterPublicPosts, getCategoryStats, deduplicateByBaseSlugPreferLang, excerptFromBody, resolvePostThumbnail, slugify } from '../../lib/content';
+import { filterPublicPosts, getCategoryStats, deduplicateByBaseSlugPreferLang, excerptFromBody, resolvePostThumbnail, slugify, getPostCategory } from '../../lib/content';
 
 const posts = filterPublicPosts(await getCollection('posts'));
 const uniquePosts = deduplicateByBaseSlugPreferLang(posts, 'en');
@@ -18,7 +18,7 @@ const categories = getCategoryStats(posts);
 
 		<div class="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
 			{categories.map((category) => {
-				const categoryPosts = uniquePosts.filter((post) => post.data.category === category.name).slice(0, 3);
+				const categoryPosts = uniquePosts.filter((post) => slugify(getPostCategory(post)) === category.slug).slice(0, 3);
 				return (
 					<section class="rounded-[2rem] border border-white/10 bg-white/5 p-6 backdrop-blur-xl">
 						<div class="flex items-start justify-between gap-3">

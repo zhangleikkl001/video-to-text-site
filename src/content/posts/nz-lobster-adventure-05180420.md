@@ -3,7 +3,7 @@ title: "Lobster Invasion: A Chinese Couple's Wild New Zealand Seafood Adventure"
 date: 2026-05-18
 category: "Discovery"
 tags: ["Travel", "Seafood", "New Zealand", "Fishing", "Lifestyle"]
-cover_image: "https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=1200&auto=format&fit=crop"
+cover_image: "/images/posts/nz-lobster-adventure-05180420/legacy_0.webp"
 original_video_url: "https://www.douyin.com/jingxuan?modal_id=762366103035968472"
 ---
 

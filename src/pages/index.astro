@@ -2,12 +2,14 @@
 import Layout from '../layouts/Layout.astro';
 import { getCollection } from 'astro:content';
 import {
+	PUBLIC_SITE_URL,
 	filterPublicPosts,
 	deduplicateByBaseSlugPreferLang,
 	excerptFromBody,
 	getCategoryStats,
 	getLangFromSlug,
 	getLocalizedPostEntry,
+	getPostCategory,
 	getTagStats,
 	getTrendingPosts,
 	resolvePostThumbnail,
@@ -28,9 +30,29 @@ const totalTags = popularTags.length;
 
 const LANG_EMOJI = { en: '🇬🇧', es: '🇪🇸', fr: '🇫🇷', de: '🇩🇪', ja: '🇯🇵' };
 const LANG_BADGES = { en: 'EN', es: 'ES', fr: 'FR', de: 'DE', ja: 'JA' };
+const websiteJsonLd = [
+	{
+		'@context': 'https://schema.org',
+		'@type': 'WebSite',
+		name: 'GlobalFeed',
+		url: `${PUBLIC_SITE_URL}/`,
+		potentialAction: {
+			'@type': 'SearchAction',
+			target: `${PUBLIC_SITE_URL}/search/?q={search_term_string}`,
+			'query-input': 'required name=search_term_string',
+		},
+	},
+	{
+		'@context': 'https://schema.org',
+		'@type': 'Organization',
+		name: 'GlobalFeed',
+		url: `${PUBLIC_SITE_URL}/`,
+		logo: `${PUBLIC_SITE_URL}/favicon.svg`,
+	},
+];
 ---
 
-<Layout title="GlobalFeed — Discover China through AI" description="Explore multilingual travel, culture, food, and city stories with categories, popular tags, and social sharing." lang="en">
+<Layout title="GlobalFeed — Discover China through AI" description="Explore multilingual travel, culture, food, and city stories with categories, popular tags, and social sharing." lang="en" jsonLd={websiteJsonLd}>
 	<section class="pt-8 pb-6 lg:pt-12">
 		<div class="grid gap-8 lg:grid-cols-[1.5fr_0.9fr] lg:items-end">
 			<div class="space-y-6">
@@ -86,7 +108,8 @@ const LANG_BADGES = { en: 'EN', es: 'ES', fr: 'FR', de: 'DE', ja: 'JA' };
 				<div class="grid gap-4 md:grid-cols-3">
 					{featuredPosts.map((post) => {
 						const lang = getLangFromSlug(post.slug);
-						const categorySlug = slugify(post.data.category);
+						const category = getPostCategory(post);
+						const categorySlug = slugify(category);
 						const thumb = resolvePostThumbnail(post);
 						return (
 							<article class="group overflow-hidden rounded-3xl border border-white/10 bg-slate-950/70 transition hover:-translate-y-1 hover:border-cyan-400/30">
@@ -101,7 +124,7 @@ const LANG_BADGES = { en: 'EN', es: 'ES', fr: 'FR', de: 'DE', ja: 'JA' };
 										)}
 										<div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/15 to-transparent"></div>
 										<div class="absolute left-3 top-3 flex items-center gap-2">
-											<span class="rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-semibold tracking-wide text-white backdrop-blur-sm">{post.data.category}</span>
+											<span class="rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-semibold tracking-wide text-white backdrop-blur-sm">{category}</span>
 											{LANG_BADGES[lang] && (
 												<span class="rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-sm">{LANG_EMOJI[lang]} {LANG_BADGES[lang]}</span>
 											)}
@@ -139,7 +162,8 @@ const LANG_BADGES = { en: 'EN', es: 'ES', fr: 'FR', de: 'DE', ja: 'JA' };
 				<div class="space-y-4">
 					{recentPosts.map((post) => {
 						const lang = getLangFromSlug(post.slug);
-						const categorySlug = slugify(post.data.category);
+						const category = getPostCategory(post);
+						const categorySlug = slugify(category);
 						const thumb = resolvePostThumbnail(post);
 						return (
 							<article class="group rounded-3xl border border-white/10 bg-slate-950/55 p-4 transition hover:border-cyan-400/25 hover:bg-slate-950/80">
@@ -153,7 +177,7 @@ const LANG_BADGES = { en: 'EN', es: 'ES', fr: 'FR', de: 'DE', ja: 'JA' };
 									</div>
 									<div class="space-y-2">
 										<div class="flex flex-wrap items-center gap-2 text-xs text-slate-400">
-											<span class="rounded-full border border-white/10 px-2.5 py-1 text-slate-300">{post.data.category}</span>
+											<span class="rounded-full border border-white/10 px-2.5 py-1 text-slate-300">{category}</span>
 											<span>{new Date(post.data.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
 											{LANG_BADGES[lang] && <span>{LANG_EMOJI[lang]} {LANG_BADGES[lang]}</span>}
 										</div>

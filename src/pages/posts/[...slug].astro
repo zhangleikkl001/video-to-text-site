@@ -10,7 +10,11 @@ import {
 	getBaseSlug,
 	getShareLinks,
 	getCategoryStats,
+	getLanguageAlternates,
 	getLocalizedPostSlug,
+	getPostCategory,
+	getPostDescription,
+	resolveAbsoluteUrl,
 	slugify,
 	sortLatest,
 	resolvePostThumbnail,
@@ -43,13 +47,19 @@ const publishDate = entry.data.date ? new Date(entry.data.date).toLocaleDateStri
 const canonicalUrl = buildAbsolutePostUrl(entry.slug);
 const shareLinks = getShareLinks(canonicalUrl, entry.data.title);
 const thumbnail = resolvePostThumbnail(entry);
+const description = getPostDescription(entry);
+const categoryName = getPostCategory(entry);
+const absoluteThumbnail = resolveAbsoluteUrl(thumbnail);
+const languageAlternates = getLanguageAlternates(allPosts, entry.slug);
+const datePublished = new Date(entry.data.date).toISOString();
+const publishDateIso = datePublished.slice(0, 10);
 const popularCategories = getCategoryStats(allPosts).slice(0, 6);
 const primaryTag = entry.data.tags?.[0] || null;
 const tagSeriesPosts = primaryTag
 	? filterPostsByTag(allPosts, primaryTag).filter((post) => post.slug !== entry.slug).slice(0, 3)
 	: [];
 
-const sameCategoryPosts = filterPostsByCategory(allPosts, entry.data.category)
+const sameCategoryPosts = filterPostsByCategory(allPosts, categoryName)
 	.filter((post) => post.slug !== entry.slug)
 	.slice(0, 3);
 
@@ -64,9 +74,40 @@ const relatedPosts = [...sameCategoryPosts]
 const currentIndex = uniquePosts.findIndex((post) => getBaseSlug(post.slug) === baseSlug);
 const newerPost = currentIndex > 0 ? uniquePosts[currentIndex - 1] : null;
 const olderPost = currentIndex >= 0 && currentIndex < uniquePosts.length - 1 ? uniquePosts[currentIndex + 1] : null;
+const articleJsonLd = {
+	'@context': 'https://schema.org',
+	'@type': 'NewsArticle',
+	headline: entry.data.title,
+	description,
+	mainEntityOfPage: {
+		'@type': 'WebPage',
+		'@id': canonicalUrl,
+	},
+	url: canonicalUrl,
+	datePublished,
+	dateModified: datePublished,
+	inLanguage: currentLang,
+	articleSection: categoryName,
+	keywords: entry.data.tags,
+	isAccessibleForFree: true,
+	author: {
+		'@type': 'Organization',
+		name: 'GlobalFeed',
+	},
+	publisher: {
+		'@type': 'Organization',
+		name: 'GlobalFeed',
+		logo: {
+			'@type': 'ImageObject',
+			url: resolveAbsoluteUrl('/favicon.svg'),
+		},
+	},
+	...(absoluteThumbnail ? { image: [absoluteThumbnail] } : {}),
+	...(entry.data.original_url ? { isBasedOn: entry.data.original_url } : {}),
+};
 ---
 
-<Layout title={`${entry.data.title} - GlobalFeed`} description={entry.data.title} lang={currentLang} canonical={canonicalUrl} alternates={[{ lang: currentLang, href: canonicalUrl }, ...translations.map((t) => ({ lang: Object.keys(LANG_NAMES).find((l) => t.slug.endsWith(`-${l}`)) || 'zh', href: buildAbsolutePostUrl(t.slug) }))]} ogImage={thumbnail || undefined} ogType="article">
+<Layout title={`${entry.data.title} - GlobalFeed`} description={description} lang={currentLang} canonical={canonicalUrl} alternates={languageAlternates} ogImage={absoluteThumbnail || undefined} ogType="article" jsonLd={articleJsonLd} publishedTime={datePublished} modifiedTime={datePublished} section={categoryName} tags={entry.data.tags}>
 	<article class="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
 		<div class="mb-8 flex flex-wrap items-center justify-center gap-2 text-sm">
 			{translations.length > 0 && (
@@ -85,8 +126,8 @@ const olderPost = currentIndex >= 0 && currentIndex < uniquePosts.length - 1 ? u
 
 		<header class="rounded-[2rem] border border-white/10 bg-white/5 p-6 shadow-2xl shadow-black/20 backdrop-blur-xl sm:p-8">
 			<div class="flex flex-wrap items-center gap-3 text-xs text-slate-400">
-				<a href={`/categories/${slugify(entry.data.category)}/`} class="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1.5 font-semibold text-cyan-200 transition hover:bg-cyan-400/15">{entry.data.category}</a>
-				<span>{publishDate}</span>
+				<a href={`/categories/${slugify(categoryName)}/`} class="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1.5 font-semibold text-cyan-200 transition hover:bg-cyan-400/15">{categoryName}</a>
+				<time datetime={publishDateIso}>{publishDate}</time>
 				<span class="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-slate-300">{LANG_EMOJI[currentLang] || '🌐'} {LANG_NAMES[currentLang] || currentLang.toUpperCase()}</span>
 			</div>
 
@@ -178,8 +219,8 @@ const olderPost = currentIndex >= 0 && currentIndex < uniquePosts.length - 1 ? u
 			</div>
 
 			<div class="flex flex-wrap gap-2">
-				<a href={`/categories/${slugify(entry.data.category)}/`} class="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-200 transition hover:border-cyan-400/30 hover:bg-cyan-400/15">
-					{entry.data.category}
+				<a href={`/categories/${slugify(categoryName)}/`} class="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-200 transition hover:border-cyan-400/30 hover:bg-cyan-400/15">
+					{categoryName}
 				</a>
 				{popularCategories.map((category) => (
 					<a href={`/categories/${slugify(category.name)}/`} class="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300 transition hover:border-cyan-400/30 hover:bg-cyan-400/10 hover:text-cyan-200">
@@ -221,7 +262,7 @@ const olderPost = currentIndex >= 0 && currentIndex < uniquePosts.length - 1 ? u
 						<h2 class="text-2xl font-bold text-white">Related stories</h2>
 						<p class="mt-1 text-sm text-slate-400">More articles from the same category and nearby topics.</p>
 					</div>
-					<a href={`/categories/${slugify(entry.data.category)}/`} class="text-sm text-cyan-300 transition hover:text-cyan-200">View category →</a>
+					<a href={`/categories/${slugify(categoryName)}/`} class="text-sm text-cyan-300 transition hover:text-cyan-200">View category →</a>
 				</div>
 
 				<div class="grid gap-4 md:grid-cols-3">
@@ -238,7 +279,7 @@ const olderPost = currentIndex >= 0 && currentIndex < uniquePosts.length - 1 ? u
 								</div>
 								<div class="space-y-3 p-4">
 									<div class="flex items-center gap-2 text-xs text-slate-400">
-										<span>{post.data.category}</span>
+										<span>{getPostCategory(post)}</span>
 										<span class="h-1 w-1 rounded-full bg-slate-600"></span>
 										<span>{new Date(post.data.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
 									</div>
@@ -282,5 +323,3 @@ const olderPost = currentIndex >= 0 && currentIndex < uniquePosts.length - 1 ? u
 		margin-bottom: 2rem;
 	}
 </style>
-
-
